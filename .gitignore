@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.pyc
+*.bak
+
+# Secrets
+src/esp32_satellite/secrets.h
+src/xiao_s3_satellite/secrets.h
+src/wr32_combo/secrets.h
+.env
+
+# Data (contains real BLE MAC addresses — never publish)
+data/
+
+# Models (binary)
+models/model.joblib
+
+# IDE
+.vscode/
+.idea/

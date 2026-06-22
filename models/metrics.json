@@ -1,0 +1,10 @@
+{
+  "accuracy": 0.8381962864721485,
+  "threshold": 0.5,
+  "adjacent_wall_fp": 0.4,
+  "in_recall": 0.9487179487179487,
+  "accuracy_non_c2c3": 0.9377431906614786,
+  "n_samples": 377,
+  "window_s": 10,
+  "trained_at": "2026-06-20 16:57:19"
+}

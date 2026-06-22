@@ -1,0 +1,65 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Room Sentinel</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh;
+     display:flex;flex-direction:column;align-items:center}
+.header{padding:32px;text-align:center}
+.header h1{font-size:1.6rem;font-weight:600;margin-bottom:8px}
+.dot{width:16px;height:16px;border-radius:50%;display:inline-block;vertical-align:middle;
+     margin-right:8px;animation:pulse 2s infinite}
+.quiet .dot{background:#238636}.present .dot{background:#d29922}.busy .dot{background:#da3633}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.status-text{font-size:1rem;color:#8b949e}
+.total{font-size:4rem;font-weight:700;margin:24px 0 8px}
+.quiet .total{color:#238636}.present .total{color:#d29922}.busy .total{color:#da3633}
+.total-label{font-size:.85rem;color:#8b949e;text-transform:uppercase;letter-spacing:.08em}
+.types{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin:24px 0;padding:0 24px}
+.type-chip{background:#161b22;border:1px solid #21262d;border-radius:24px;padding:12px 20px;
+           font-size:1rem;display:flex;align-items:center;gap:8px}
+.type-chip .count{font-weight:700;font-size:1.2rem}
+.uncertain{font-size:.85rem;color:#484f58;margin-top:12px}
+.empty{text-align:center;padding:60px;color:#484f58}
+.empty-icon{font-size:3rem;margin-bottom:12px}
+</style>
+<body class="quiet">
+<div class="header">
+  <h1><span class="dot"></span> Room Sentinel</h1>
+  <span class="status-text" id="status">Scanning...</span>
+</div>
+<div class="total" id="total">0</div>
+<div class="total-label">devices inside</div>
+<div class="types" id="types"></div>
+<div class="uncertain" id="uncertain"></div>
+<script>
+const ICONS={phone:"\u{1F4F1}",earbuds:"\u{1F3A7}",watch:"\u231A",laptop:"\u{1F4BB}",
+  tablet:"\u{1F4F1}",speaker:"\u{1F50A}",tv:"\u{1F4FA}",tracker:"\u{1F4CD}",
+  keyboard:"\u2328",mouse:"\u{1F5B1}",keyboard_or_mouse:"\u2328",
+  apple_device:"\u{1F34E}",earbuds_or_galaxy:"\u{1F3A7}",laptop_or_pc:"\u{1F4BB}",
+  unknown:"\u2753"};
+const LABELS={phone:"Phones",earbuds:"Earbuds",watch:"Watches",laptop:"Laptops",
+  tablet:"Tablets",speaker:"Speakers",tv:"TVs",tracker:"Trackers",
+  keyboard:"Keyboards",mouse:"Mice",keyboard_or_mouse:"HID",
+  apple_device:"Apple",earbuds_or_galaxy:"Galaxy",laptop_or_pc:"PC/Laptop",
+  unknown:"Unknown"};
+
+async function tick(){
+  let r;
+  try{r=await(await fetch("/api/census")).json()}catch(e){return}
+  document.body.className=r.level;
+  document.getElementById("total").textContent=r.total;
+  const s=document.getElementById("status");
+  if(r.level==="quiet")s.textContent="No devices detected";
+  else s.textContent=r.total+" device"+(r.total!==1?"s":"")+" inside";
+
+  const tc=document.getElementById("types");
+  tc.innerHTML=Object.entries(r.counts).map(([k,v])=>
+    `<div class="type-chip">${ICONS[k]||"\u2753"} ${LABELS[k]||k} <span class="count">${v}</span></div>`
+  ).join("");
+
+  const uc=document.getElementById("uncertain");
+  uc.textContent=r.uncertain>0?"uncertain: "+r.uncertain:"";
+}
+setInterval(tick,2000);tick();
+</script>
+</body>

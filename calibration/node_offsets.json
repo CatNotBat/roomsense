@@ -1,0 +1,18 @@
+{
+  "offsets": {
+    "esp_c1": -2.5,
+    "esp_c2": 0.31,
+    "esp_c3": 1.0,
+    "esp_c4": 0.75
+  },
+  "method": "multi-beacon",
+  "n_devices": 26,
+  "duration_s": 60,
+  "per_sensor_deviation_medians": {
+    "esp_c1": 2.5,
+    "esp_c2": -0.31,
+    "esp_c3": -1.0,
+    "esp_c4": -0.75
+  },
+  "timestamp": "2026-06-20T15:20:36"
+}
