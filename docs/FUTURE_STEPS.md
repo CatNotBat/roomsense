@@ -89,9 +89,13 @@ The system auto-detects the fused model and subscribes to both `sentinel/rssi` a
 - Budget Android phones may have weaker BLE — verify detection
 
 ### Deploy to Raspberry Pi 4B
-- Install Mosquitto + Python deps on RPi
-- Copy repo, run `live_ble.py`
-- Replace laptop as permanent brain
+Deployment files ready in `deploy/`:
+1. Copy repo to RPi: `rsync -av --exclude .venv . pi@<rpi_ip>:/opt/room-sentinel/`
+2. Run setup: `sudo bash /opt/room-sentinel/deploy/setup-rpi.sh`
+3. Copy trained model + calibration to `/opt/room-sentinel/models/` and `/opt/room-sentinel/calibration/`
+4. Update ESP32 firmware `MQTT_SERVER` to RPi's IP, re-flash all 4 nodes
+5. Start: `sudo systemctl start room-sentinel`
+6. Optional: 5" DSI IPS screen + `deploy/kiosk.sh` for dedicated dashboard display
 
 ### Adaptive Threshold
 - Track running statistics of env feature distributions

@@ -1,0 +1,24 @@
+[Unit]
+Description=Room Sentinel — BLE + mmWave presence detection
+After=network-online.target mosquitto.service
+Wants=network-online.target mosquitto.service
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+WorkingDirectory=/opt/room-sentinel
+ExecStart=/opt/room-sentinel/.venv/bin/python src/live_ble.py
+Restart=on-failure
+RestartSec=5
+
+# Environment (override in /etc/room-sentinel.env if needed)
+EnvironmentFile=-/etc/room-sentinel.env
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/room-sentinel/calibration /opt/room-sentinel/models
+
+[Install]
+WantedBy=multi-user.target
