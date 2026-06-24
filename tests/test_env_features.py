@@ -188,3 +188,50 @@ def test_strong_device_counts():
         assert X["env_strong70__s1"].iloc[0] >= 4
         # strong80: RSSI > -80 → adds -70, -75 = 6+ readings
         assert X["env_strong80__s1"].iloc[0] >= X["env_strong70__s1"].iloc[0]
+
+
+# ---- Temporal derivative tests ----
+
+def test_delta_features_present():
+    """Delta features should exist for each sensor."""
+    sensors = ["esp_c1", "esp_c2", "esp_c3", "esp_c4"]
+    df = _make_readings(duration=25)
+    X, _ = build_env_table(df, A=10, overlap=0.0, sensors=sensors)
+    assert len(X) > 0
+    for sensor in sensors:
+        assert f"env_median_delta__{sensor}" in X.columns
+        assert f"env_pkt_rate_delta__{sensor}" in X.columns
+
+
+def test_first_window_delta_zero():
+    """First window should have delta=0 for all sensors."""
+    sensors = ["esp_c1", "esp_c2", "esp_c3", "esp_c4"]
+    df = _make_readings(duration=25)
+    X, _ = build_env_table(df, A=10, overlap=0.0, sensors=sensors)
+    assert len(X) > 0
+    for sensor in sensors:
+        assert X[f"env_median_delta__{sensor}"].iloc[0] == 0.0
+        assert X[f"env_pkt_rate_delta__{sensor}"].iloc[0] == 0.0
+
+
+def test_delta_values_correct():
+    """Delta should equal current - previous window value."""
+    sensors = ["s1"]
+    rows = []
+    t0 = 1000.0
+    # Window 0 [1000, 1010): RSSI around -70
+    for i in range(12):
+        rows.append({"ts": t0 + i * 0.8, "source": "s1",
+                     "mac": f"aa:bb:cc:dd:ee:{i % 3:02x}", "rssi": -70})
+    # Window 1 [1010, 1020): RSSI around -50 (stronger)
+    for i in range(12):
+        rows.append({"ts": t0 + 10 + i * 0.8, "source": "s1",
+                     "mac": f"aa:bb:cc:dd:ee:{i % 3:02x}", "rssi": -50})
+    df = pd.DataFrame(rows)
+    X, _ = build_env_table(df, A=10, overlap=0.0, sensors=sensors)
+    assert len(X) >= 2
+    # Window 0: delta = 0
+    assert X["env_median_delta__s1"].iloc[0] == 0.0
+    # Window 1: delta = median(-50) - median(-70) = 20
+    delta = X["env_median_delta__s1"].iloc[1]
+    assert delta == 20.0, f"Expected 20.0, got {delta}"

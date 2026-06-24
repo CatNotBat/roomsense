@@ -11,11 +11,37 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 
+USE_LGBM = "--lgbm" in sys.argv
+
 sys.path.insert(0, os.path.dirname(__file__))
 from config import WINDOW_S, AGG_WINDOW_S, AGG_OVERLAP
 from features import build_table, NOT_HEARD
 from aggregation import build_aggregated_table
 from env_features import build_env_table
+
+def _make_classifier(columns):
+    """Return RF or LightGBM classifier based on --lgbm flag."""
+    if not USE_LGBM:
+        return RandomForestClassifier(n_estimators=300, random_state=0, n_jobs=-1)
+
+    import lightgbm as lgb
+    # Monotone constraints: -1 for env_median (higher RSSI = more likely inside)
+    mc = []
+    for c in columns:
+        if c.startswith("env_median__") and "delta" not in c:
+            mc.append(-1)  # RSSI median: decreasing with distance
+        else:
+            mc.append(0)
+    return lgb.LGBMClassifier(
+        objective="binary", num_leaves=31, max_depth=8,
+        min_child_samples=20, learning_rate=0.1, n_estimators=300,
+        reg_alpha=0.1, reg_lambda=0.1,
+        feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=5,
+        monotone_constraints=mc,
+        monotone_constraints_method="intermediate",
+        verbose=-1, random_state=0, n_jobs=-1,
+    )
+
 
 HARD_OUT = "OUT_SHARED_WALL"
 POCKET = "IN_POCKET"
@@ -81,7 +107,8 @@ else:
 y = (meta["inout"] == "in").astype(int).values
 groups = meta["position"].values
 
-print(f"Samples: {len(X)}  features: {X.shape[1]}  inside: {y.sum()}  outside: {(y==0).sum()}")
+algo_label = "LightGBM" if USE_LGBM else "RandomForest"
+print(f"Samples: {len(X)}  features: {X.shape[1]}  inside: {y.sum()}  outside: {(y==0).sum()}  algorithm: {algo_label}")
 
 # ---- guardrails ----
 src_counts = df.groupby("source").size()
@@ -121,8 +148,13 @@ def run_eval(X_sub, label):
     logo = LeaveOneGroupOut()
     oof_prob = np.zeros(len(y))
     for tr, te in logo.split(X_sub, y, groups):
-        clf = RandomForestClassifier(n_estimators=300, random_state=0, n_jobs=-1)
-        clf.fit(X_sub.iloc[tr], y[tr])
+        clf = _make_classifier(list(X_sub.columns))
+        if USE_LGBM:
+            clf.fit(X_sub.iloc[tr], y[tr],
+                    eval_set=[(X_sub.iloc[te], y[te])],
+                    callbacks=[__import__("lightgbm").early_stopping(50, verbose=False)])
+        else:
+            clf.fit(X_sub.iloc[tr], y[tr])
         oof_prob[te] = clf.predict_proba(X_sub.iloc[te])[:, 1]
 
     # Pick highest threshold with pocket recall >= target
@@ -199,19 +231,48 @@ if single_metrics["pocket_recall"] is not None and full_metrics["pocket_recall"]
           f"delta={full_metrics['pocket_recall']-single_metrics['pocket_recall']:+.3f}")
 
 # ---- Train final model (full array) and save ----
-final = RandomForestClassifier(n_estimators=300, random_state=0, n_jobs=-1).fit(X, y)
+final = _make_classifier(list(X.columns))
+if USE_LGBM:
+    final.fit(X, y)
+else:
+    final.fit(X, y)
 os.makedirs("models", exist_ok=True)
 feature_type = "legacy" if USE_LEGACY else ("environment" if USE_ENV else "per_device")
 if USE_ENV and has_radar:
     feature_type = "environment_fused"
-joblib.dump({
+algorithm = "lgbm" if USE_LGBM else "rf"
+
+# MAPIE conformal prediction: calibrate on held-out split
+mapie_model = None
+mapie_alpha = 0.10
+try:
+    from mapie.classification import SplitConformalClassifier
+    # Use last 20% of data as calibration set (stratified by position)
+    n_cal = max(20, len(X) // 5)
+    cal_idx = np.random.RandomState(42).choice(len(X), n_cal, replace=False)
+    X_cal, y_cal = X.iloc[cal_idx], y[cal_idx]
+    mapie_model = SplitConformalClassifier(
+        estimator=final, confidence_level=1 - mapie_alpha,
+        conformity_score="lac")
+    mapie_model.conformalize(X_cal, y_cal)
+    print(f"MAPIE conformal prediction calibrated (alpha={mapie_alpha}, n_cal={n_cal})")
+except Exception as e:
+    print(f"MAPIE calibration skipped: {e}")
+    mapie_model = None
+
+bundle = {
     "model": final, "columns": list(X.columns),
     "window_s": AGG_WINDOW_S if not USE_LEGACY else WINDOW_S,
     "threshold": float(full_metrics["threshold"]),
     "version": "v3" if not USE_LEGACY else "v2",
     "feature_type": feature_type,
     "has_radar": has_radar,
-}, "models/model.joblib")
+    "algorithm": algorithm,
+}
+if mapie_model is not None:
+    bundle["mapie"] = mapie_model
+    bundle["mapie_alpha"] = mapie_alpha
+joblib.dump(bundle, "models/model.joblib")
 print("\nSaved models/model.joblib")
 
 # Top features

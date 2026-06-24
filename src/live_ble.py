@@ -19,6 +19,8 @@ from aggregation import build_aggregated_table
 from env_features import build_env_table
 from device_id import device_type, is_infra_candidate, InfraAllowlist
 from dedup import RPADedup, count_nearby_devices
+from adv_interval import AdvertisingIntervalEstimator
+from baseline import BaselineCapture, BASELINE_PATH
 from rssi_cal import calibrate_rssi, has_calibration, auto_calibrate
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,8 +34,14 @@ FEATURE_TYPE = bundle.get("feature_type", "per_device")
 USE_ENV = FEATURE_TYPE in ("environment", "environment_fused")
 HAS_RADAR = bundle.get("has_radar", False)
 USE_AGG = MODEL_VERSION == "v3" and not USE_ENV
+MAPIE_MODEL = bundle.get("mapie")
+MAPIE_ALPHA = bundle.get("mapie_alpha", 0.10)
 BUFFER_S = WINDOW_S * 2 if USE_ENV else (AGG_WINDOW_S if USE_AGG else WINDOW_S * 2)
 THRESH = CFG_THRESHOLD if os.getenv("SENTINEL_THRESH") else bundle.get("threshold", CFG_THRESHOLD)
+
+# Load empty-room baseline (optional)
+_baseline = BaselineCapture.load()
+_baseline_stats = _baseline.stats if _baseline else None
 
 # Infrastructure allowlist (hashed MACs)
 _allow_path = os.path.join(ROOT, "data", "allowlist.json")
@@ -45,6 +53,7 @@ buf = collections.deque()
 radar_buf = collections.deque()
 lock = threading.Lock()
 dedup = RPADedup()
+adv_estimator = AdvertisingIntervalEstimator()
 
 # Per-device state for display stability (keyed by hashed mac)
 # {hashed_mac: {first, last_in, category, votes: [bool], prob}}
@@ -70,14 +79,16 @@ def mqtt_thread():
                 # Always use brain-arrival time for live buffering (satellite
                 # SNTP clocks may drift). Training data uses its own timestamps.
                 ts = time.time()
+                mac_lower = mac.lower()
                 with lock:
                     buf.append({
-                        "ts": ts, "source": source, "mac": mac.lower(),
+                        "ts": ts, "source": source, "mac": mac_lower,
                         "rssi": calibrate_rssi(rssi, source),
                         "addr_type": addr_type, "appearance": appearance,
                         "mfg_hex": mfg, "svc_hex": svc,
                         "adv_type": adv_type,
                     })
+                adv_estimator.add_observation(mac_lower, source, ts)
 
             elif msg.topic == TOPIC_RADAR:
                 p = msg.payload.decode().split("|")
@@ -168,7 +179,8 @@ def evaluate():
 def _evaluate_env(df, rows, now, radar_rows=None):
     """Environment-level inference: is someone inside based on overall BLE signature?"""
     X, meta = build_env_table(df, A=WINDOW_S, overlap=0.0,
-                              radar_readings=radar_rows)
+                              radar_readings=radar_rows,
+                              baseline_stats=_baseline_stats)
     if len(X) == 0:
         return {"level": "quiet", "counts": {}, "total": 0, "uncertain": 0,
                 "room_prob": 0.0, "sensors": _sensor_health(now)}
@@ -181,6 +193,19 @@ def _evaluate_env(df, rows, now, radar_rows=None):
     prev = _prob_history.get("__room__", room_prob)
     room_prob = 0.4 * room_prob + 0.6 * prev
     _prob_history["__room__"] = room_prob
+
+    # MAPIE uncertainty for env path
+    env_uncertain = False
+    if MAPIE_MODEL is not None:
+        try:
+            _, pred_sets = MAPIE_MODEL.predict_set(X)
+            # If any window has both classes in set, flag uncertain
+            for i in range(len(pred_sets)):
+                if pred_sets[i, :, 0].sum() > 1:
+                    env_uncertain = True
+                    break
+        except Exception:
+            pass
 
     occupied = room_prob >= THRESH
 
@@ -198,7 +223,7 @@ def _evaluate_env(df, rows, now, radar_rows=None):
         "level": level,
         "counts": counts,
         "total": total,
-        "uncertain": 0,
+        "uncertain": 1 if env_uncertain else 0,
         "room_prob": round(room_prob, 3),
         "sensors": _sensor_health(now),
     }
@@ -212,6 +237,19 @@ def _evaluate_per_device(df, rows, now):
         X, meta = build_table(df, window_s=WINDOW_S)
     X = X.reindex(columns=COLS, fill_value=NOT_HEARD)
     prob = MODEL.predict_proba(X)[:, 1]
+
+    # MAPIE prediction sets for uncertainty (if available)
+    _mapie_uncertain = set()  # indices with multi-class prediction sets
+    if MAPIE_MODEL is not None:
+        try:
+            _, pred_sets = MAPIE_MODEL.predict_set(X)
+            # pred_sets shape: (n_samples, n_classes, n_confidence_levels)
+            for i in range(len(pred_sets)):
+                set_size = pred_sets[i, :, 0].sum()
+                if set_size > 1:  # both classes in prediction set
+                    _mapie_uncertain.add(i)
+        except Exception:
+            pass  # fallback to margin-based uncertainty
 
     # Gather device metadata per mac (latest wins)
     meta_info = {}  # mac -> {addr_type, appearance, mfg_hex, svc_hex, rssi_vec}
@@ -228,9 +266,12 @@ def _evaluate_per_device(df, rows, now):
 
     # Map predictions to macs — average prob across windows (more stable)
     mac_probs = collections.defaultdict(list)
+    mac_mapie_uncertain = set()  # macs with MAPIE multi-class sets
     for i in range(len(meta)):
         mac = meta.iloc[i]["mac"]
         mac_probs[mac].append(float(prob[i]))
+        if i in _mapie_uncertain:
+            mac_mapie_uncertain.add(mac)
     mac_best_prob = {mac: max(ps) for mac, ps in mac_probs.items()}
 
     # Smooth across evaluations: EMA of per-mac probability
@@ -242,7 +283,7 @@ def _evaluate_per_device(df, rows, now):
 
     inside_devices = {}   # mac -> category
     uncertain_macs = set()
-    margin = 0.10  # threshold margin for "uncertain" bucket
+    margin = 0.10  # fallback threshold margin for "uncertain" bucket
 
     for mac, p in mac_best_prob.items():
         # Skip infra
@@ -252,7 +293,9 @@ def _evaluate_per_device(df, rows, now):
 
         mi = meta_info.get(mac, {})
 
-        if abs(p - THRESH) < margin:
+        # Uncertainty check: MAPIE prediction sets if available, else margin
+        is_uncertain = (mac in mac_mapie_uncertain) if MAPIE_MODEL else (abs(p - THRESH) < margin)
+        if is_uncertain:
             uncertain_macs.add(mac)
             continue
 
@@ -282,7 +325,10 @@ def _evaluate_per_device(df, rows, now):
                 if s in mac_per_sensor else -120
                 for s in SENSORS
             ]
-            dedup.update(mac, rssi_vec, cat)
+            # Get advertising interval estimate for dedup
+            interval_est = adv_estimator.estimate(mac)
+            interval_ms = interval_est["interval_ms"] if interval_est else None
+            dedup.update(mac, rssi_vec, cat, interval_ms=interval_ms)
 
     # De-dup: get category counts (no MAC exits this call)
     counts = dedup.get_counts(inside_devices)
@@ -340,6 +386,26 @@ def index():
 @app.route("/api/census")
 def census():
     return jsonify(evaluate())
+
+
+@app.route("/api/baseline", methods=["POST"])
+def capture_baseline():
+    """Capture empty-room baseline from current buffer (5+ min of data)."""
+    global _baseline, _baseline_stats
+    with lock:
+        rows = list(buf)
+    if len(rows) < 100:
+        return jsonify({"error": "Not enough data in buffer. Wait 5+ minutes."}), 400
+
+    df = pd.DataFrame([{"ts": r["ts"], "source": r["source"], "mac": r["mac"],
+                        "rssi": r["rssi"]} for r in rows])
+    bc = BaselineCapture()
+    radar_rows = list(radar_buf) if HAS_RADAR else None
+    bc.capture(df, A=WINDOW_S, radar_readings=radar_rows)
+    bc.save()
+    _baseline = bc
+    _baseline_stats = bc.stats
+    return jsonify({"status": "ok", "features": len(bc.stats)})
 
 
 if __name__ == "__main__":

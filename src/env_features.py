@@ -26,7 +26,7 @@ from config import AGG_WINDOW_S, AGG_OVERLAP, SENSORS
 
 
 def build_env_table(readings, A=None, overlap=None, sensors=None,
-                    radar_readings=None):
+                    radar_readings=None, baseline_stats=None):
     """Build environment-level feature table.
 
     Args:
@@ -35,6 +35,8 @@ def build_env_table(readings, A=None, overlap=None, sensors=None,
         overlap: fraction overlap
         radar_readings: list[dict] with radar frames (optional).
             Each dict: {source, ts, n_targets, targets:[{x,y,spd,dist}]}
+        baseline_stats: dict from BaselineCapture.stats (optional).
+            If provided, adds bdev_* z-score features per window.
 
     Returns:
         (X, meta) — feature DataFrame and metadata with labels
@@ -143,6 +145,35 @@ def build_env_table(readings, A=None, overlap=None, sensors=None,
             m["position"] = wl["position"].iloc[0] if len(wl) > 0 else win["position"].iloc[0]
             m["inout"] = wl["inout"].iloc[0] if len(wl) > 0 else win["inout"].iloc[0]
         meta_rows.append(m)
+
+    # Temporal derivatives: delta from previous window
+    for i, feat in enumerate(rows):
+        for sensor in sensors:
+            med_key = f"env_median__{sensor}"
+            pkt_key = f"env_pkt_count__{sensor}"
+            if i == 0:
+                feat[f"env_median_delta__{sensor}"] = 0.0
+                feat[f"env_pkt_rate_delta__{sensor}"] = 0.0
+            else:
+                prev = rows[i - 1]
+                cur_med = feat.get(med_key)
+                prev_med = prev.get(med_key)
+                if cur_med is not None and prev_med is not None \
+                        and not (isinstance(cur_med, float) and np.isnan(cur_med)) \
+                        and not (isinstance(prev_med, float) and np.isnan(prev_med)):
+                    feat[f"env_median_delta__{sensor}"] = cur_med - prev_med
+                else:
+                    feat[f"env_median_delta__{sensor}"] = 0.0
+
+                cur_pkt = feat.get(pkt_key, 0)
+                prev_pkt = prev.get(pkt_key, 0)
+                feat[f"env_pkt_rate_delta__{sensor}"] = cur_pkt - prev_pkt
+
+    # Baseline deviation features (z-scores vs empty-room baseline)
+    if baseline_stats:
+        from baseline import baseline_deviation_features
+        for feat in rows:
+            feat.update(baseline_deviation_features(feat, baseline_stats))
 
     X = pd.DataFrame(rows)
     meta = pd.DataFrame(meta_rows)

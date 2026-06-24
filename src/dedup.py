@@ -35,7 +35,7 @@ class RPADedup:
         # Clean merges pointing to expired entries
         self._merges = {k: v for k, v in self._merges.items() if v in self._entries}
 
-    def _find_merge_candidate(self, mac, rssi_vec, category):
+    def _find_merge_candidate(self, mac, rssi_vec, category, interval_ms=None):
         """Find a recently-departed entry that looks like the same device."""
         now = time.time()
         best = None
@@ -50,6 +50,13 @@ class RPADedup:
             # Category must match
             if entry["category"] != category:
                 continue
+            # Advertising interval check: if both have intervals and they
+            # differ by >20%, these are different devices — block merge
+            old_interval = entry.get("interval_ms")
+            if interval_ms and old_interval and old_interval > 0:
+                ratio = abs(interval_ms - old_interval) / old_interval
+                if ratio > 0.20:
+                    continue
             # RSSI vector similarity (cosine-ish: small diff = likely same device)
             if rssi_vec and entry["rssi_vec"]:
                 diffs = [abs(a - b) for a, b in zip(rssi_vec, entry["rssi_vec"])
@@ -62,7 +69,7 @@ class RPADedup:
                         best = old_mac
         return best
 
-    def update(self, mac, rssi_vec, category):
+    def update(self, mac, rssi_vec, category, interval_ms=None):
         """Register/update a device. Returns the canonical mac for counting."""
         self._expire()
 
@@ -71,10 +78,13 @@ class RPADedup:
             self._entries[mac]["last_seen"] = time.time()
             self._entries[mac]["rssi_vec"] = rssi_vec
             self._entries[mac]["category"] = category
+            if interval_ms:
+                self._entries[mac]["interval_ms"] = interval_ms
             return self._merges.get(mac, mac)
 
         # Check if this looks like a rotation of a recently-departed address
-        candidate = self._find_merge_candidate(mac, rssi_vec, category)
+        candidate = self._find_merge_candidate(mac, rssi_vec, category,
+                                               interval_ms=interval_ms)
         if candidate:
             canonical = self._merges.get(candidate, candidate)
             self._merges[mac] = canonical
@@ -85,6 +95,7 @@ class RPADedup:
             "last_seen": time.time(),
             "rssi_vec": rssi_vec,
             "category": category,
+            "interval_ms": interval_ms,
         }
         return canonical
 

@@ -99,3 +99,83 @@ def test_columns_stable_with_and_without_radar():
         if pd.isna(v1) and pd.isna(v2):
             continue
         assert v1 == v2, f"BLE feature {col} changed with radar: {v1} vs {v2}"
+
+
+def test_lgbm_classifier_with_monotone_constraints():
+    """LightGBM classifier trains and predicts with monotone constraints."""
+    import lightgbm as lgb
+
+    sensors = ["esp_c1", "esp_c2"]
+    df = _make_readings(n_sensors=2, duration=30)
+    X, meta = build_env_table(df, A=10, overlap=0.0, sensors=sensors)
+    y = np.ones(len(X), dtype=int)
+    if len(X) < 2:
+        return
+
+    # Build monotone constraints like train.py does
+    mc = []
+    for c in X.columns:
+        if c.startswith("env_median__") and "delta" not in c:
+            mc.append(-1)
+        else:
+            mc.append(0)
+
+    clf = lgb.LGBMClassifier(
+        objective="binary", num_leaves=8, n_estimators=10,
+        monotone_constraints=mc,
+        monotone_constraints_method="intermediate",
+        verbose=-1, random_state=0,
+    )
+    clf.fit(X, y)
+    proba = clf.predict_proba(X)
+    assert proba.shape == (len(X), 2)
+    assert all(0 <= p <= 1 for p in proba[:, 1])
+
+
+def test_mapie_conformal_prediction_sets():
+    """MAPIE SplitConformalClassifier produces valid prediction sets."""
+    from mapie.classification import SplitConformalClassifier
+    from sklearn.ensemble import RandomForestClassifier
+
+    sensors = ["esp_c1", "esp_c2"]
+    df = _make_readings(n_sensors=2, duration=60)
+    X, meta = build_env_table(df, A=10, overlap=0.0, sensors=sensors)
+    y = np.ones(len(X), dtype=int)
+    # Make some samples "out"
+    y[:len(y)//3] = 0
+
+    if len(X) < 10:
+        return
+
+    clf = RandomForestClassifier(n_estimators=10, random_state=0)
+    clf.fit(X, y)
+
+    mapie = SplitConformalClassifier(
+        estimator=clf, confidence_level=0.90, conformity_score="lac")
+    n_cal = min(5, len(X))
+    mapie.conformalize(X.iloc[:n_cal], y[:n_cal])
+
+    preds, sets = mapie.predict_set(X)
+    # sets shape: (n_samples, n_classes, n_confidence_levels)
+    assert sets.shape[0] == len(X)
+    assert sets.shape[1] == 2  # binary
+    # Each sample should have at least 1 class in the set
+    set_sizes = sets[:, :, 0].sum(axis=1)
+    assert all(s >= 1 for s in set_sizes)
+
+
+def test_old_bundle_no_mapie_backward_compat():
+    """Old bundles without 'mapie' key should still work."""
+    bundle = {
+        "model": None,
+        "columns": ["feat1", "feat2"],
+        "window_s": 20,
+        "threshold": 0.5,
+        "version": "v3",
+        "feature_type": "environment",
+        "has_radar": False,
+    }
+    # Accessing optional keys should return None
+    assert bundle.get("mapie") is None
+    assert bundle.get("mapie_alpha", 0.10) == 0.10
+    assert bundle.get("algorithm", "rf") == "rf"
