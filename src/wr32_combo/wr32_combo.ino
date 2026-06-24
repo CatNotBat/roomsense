@@ -5,8 +5,8 @@
  * Core 1 (Arduino default): WiFi + SNTP + MQTT + BLE scan
  * Core 0 (FreeRTOS task):   LD2450 UART reader + MQTT publish
  *
- * Publishes BLE to "sentinel/rssi" (unchanged v3 format):
- *   SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs
+ * Publishes BLE to "sentinel/rssi" (v3.1 format — added advType field):
+ *   SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs|advType
  *
  * Publishes radar to "sentinel/radar":
  *   SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|x1|y1|spd1|dist1|x2|y2|spd2|dist2
@@ -66,9 +66,9 @@ void toHex(const uint8_t* src, int len, char* dst, int maxLen) {
   dst[j] = '\0';
 }
 
-// Thread-safe MQTT publish (5ms mutex timeout)
+// Thread-safe MQTT publish (50ms mutex timeout — longer to prevent radar frame drops)
 static bool safePub(const char* topic, const char* payload) {
-  if (xSemaphoreTake(mqMutex, pdMS_TO_TICKS(5))) {
+  if (xSemaphoreTake(mqMutex, pdMS_TO_TICKS(50))) {
     bool ok = mq.publish(topic, payload);
     xSemaphoreGive(mqMutex);
     return ok;
@@ -212,10 +212,13 @@ class SatelliteCallbacks : public BLEAdvertisedDeviceCallbacks {
       svcHex = uuidHex + String(hexBuf);
     }
 
+    // ADV_IND=0, ADV_DIRECT_IND=1, ADV_SCAN_IND=2, ADV_NONCONN_IND=3, SCAN_RSP=4
+    int advType = d.getAdvType();
+
     char buf[420];
-    snprintf(buf, sizeof(buf), "%s|%s|%d|%d|%d|%s|%s|%llu",
+    snprintf(buf, sizeof(buf), "%s|%s|%d|%d|%d|%s|%s|%llu|%d",
              SENSOR_ID, mac.c_str(), rssi, addrType,
-             appearance, mfgHex.c_str(), svcHex.c_str(), rxMs);
+             appearance, mfgHex.c_str(), svcHex.c_str(), rxMs, advType);
     safePub("sentinel/rssi", buf);
   }
 };

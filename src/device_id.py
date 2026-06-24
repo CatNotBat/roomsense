@@ -9,8 +9,15 @@ Privacy boundary:
   - This module returns a category string and nothing else."""
 
 APPLE, MSFT, GOOGLE, SAMSUNG = 0x004C, 0x0006, 0x00E0, 0x0075
-APPEARANCE = {0x0040: "phone", 0x0080: "laptop", 0x00C0: "watch",
-              0x03C1: "keyboard", 0x03C2: "mouse", 0x0841: "earbuds"}
+APPEARANCE = {0x0040: "phone", 0x0041: "phone",      # Generic Phone, Smartphone
+              0x0080: "laptop", 0x0083: "laptop",    # Generic Computer, Laptop
+              0x00C0: "watch", 0x00C1: "watch",      # Generic Watch, Sports Watch
+              0x03C1: "keyboard", 0x03C2: "mouse",
+              0x0841: "earbuds", 0x0844: "earbuds",  # Standalone Speaker, Headphones
+              0x0845: "earbuds", 0x0846: "earbuds"}  # Headset, Earbud
+
+# Apple Continuity TLV types that indicate infrastructure (not a person)
+APPLE_INFRA_TYPES = frozenset({0x01, 0x03, 0x06, 0x09})  # AirPrint, AirPlay, HomeKit, AirPlay Target
 
 
 def company_id(mfg_hex):
@@ -59,11 +66,21 @@ def device_type(mfg_hex="", svc_hex="", appearance=-1, addr_type=1, svc_uuids=()
     # 3) manufacturer-data ecosystems
     cid = company_id(mfg_hex)
     if cid == APPLE:
+        b = bytes.fromhex(mfg_hex)
+        # iBeacon: type 0x02 with length 0x15 immediately after company ID
+        if len(b) >= 4 and b[2] == 0x02 and b[3] == 0x15:
+            return "beacon"
         t = apple_continuity_types(mfg_hex)
+        if t & APPLE_INFRA_TYPES:
+            return "infra"          # AirPrint, AirPlay, HomeKit, AirPlay Target
+        if 0x0A in t:
+            return "watch"          # Apple Watch Magic Switch (exclusive)
         if 0x07 in t:
             return "earbuds"        # AirPods/Beats
-        if 0x10 in t or 0x12 in t:
-            return "phone"          # Apple handheld/computer-class
+        if 0x12 in t:
+            return "tracker"        # AirTag / Find My accessory
+        if 0x10 in t:
+            return "phone"          # Apple Nearby Info (iPhone/iPad/Mac)
         return "apple_device"
     if cid == SAMSUNG:
         return "earbuds_or_galaxy"
@@ -83,7 +100,22 @@ def device_type(mfg_hex="", svc_hex="", appearance=-1, addr_type=1, svc_uuids=()
     return "unknown"
 
 
-# ---- Infrastructure suppression ----
+# ---- Address classification ----
+
+def classify_random_addr(mac_str):
+    """Classify a random BLE address by its top 2 bits.
+    Returns 'rpa' (rotates ~15min), 'static' (stable per power cycle),
+    'nrpa' (non-resolvable), or 'public'."""
+    first_byte = int(mac_str.split(":")[0], 16)
+    top2 = (first_byte >> 6) & 0x03
+    if top2 == 0b01:
+        return "rpa"
+    elif top2 == 0b11:
+        return "static"
+    elif top2 == 0b00:
+        return "nrpa"
+    return "public"
+
 
 def is_infra_candidate(addr_type):
     """Only PUBLIC (0) addresses get OUI lookup — stable, not privacy-rotated."""

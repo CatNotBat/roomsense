@@ -63,24 +63,22 @@ class TestTwoiPhones:
     def test_two_phones_same_location(self):
         """Two iPhones sharing Continuity type 0x10 → 2 devices."""
         rows = _make_rows([
-            # Phone 1: Nearby + Handoff
+            # Phone 1: Nearby Info
             ("aa:01", {"esp_c1": -50, "esp_c2": -60}, _apple_mfg(0x10), 1),
-            ("aa:02", {"esp_c1": -51, "esp_c2": -61}, _apple_mfg(0x12), 1),
-            # Phone 2: Nearby (same type as phone 1's first MAC → different device)
+            # Phone 2: Nearby Info (same type as phone 1 → anti-dedup keeps both)
             ("bb:01", {"esp_c1": -52, "esp_c2": -59}, _apple_mfg(0x10), 1),
-            ("bb:02", {"esp_c1": -53, "esp_c2": -60}, _apple_mfg(0x09), 1),
         ])
         counts = count_nearby_devices(rows)
         assert counts.get("phone", 0) == 2
 
-    def test_two_phones_different_locations(self):
-        """Two phones at different locations (different RSSI patterns) → 2."""
+    def test_two_trackers_different_locations(self):
+        """Two Find My trackers at different locations → 2."""
         rows = _make_rows([
             ("aa:01", {"esp_c1": -45, "esp_c2": -75}, _apple_mfg(0x12), 1),
             ("bb:01", {"esp_c1": -75, "esp_c2": -45}, _apple_mfg(0x12), 1),
         ])
         counts = count_nearby_devices(rows)
-        assert counts.get("phone", 0) == 2
+        assert counts.get("tracker", 0) == 2
 
 
 class TestNonAppleDevices:

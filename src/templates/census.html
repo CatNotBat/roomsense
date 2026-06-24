@@ -19,6 +19,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#e1
            font-size:1rem;display:flex;align-items:center;gap:8px}
 .type-chip .count{font-weight:700;font-size:1.2rem}
 .uncertain{font-size:.85rem;color:#484f58;margin-top:12px}
+.sensors{display:flex;gap:8px;justify-content:center;margin-top:16px;padding:0 24px}
+.sensor{font-size:.7rem;padding:4px 10px;border-radius:12px;background:#161b22;border:1px solid #21262d}
+.sensor.ok{color:#238636}.sensor.offline{color:#da3633}
 .empty{text-align:center;padding:60px;color:#484f58}
 .empty-icon{font-size:3rem;margin-bottom:12px}
 </style>
@@ -31,17 +34,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f1117;color:#e1
 <div class="total-label">devices inside</div>
 <div class="types" id="types"></div>
 <div class="uncertain" id="uncertain"></div>
+<div class="sensors" id="sensors"></div>
 <script>
 const ICONS={phone:"\u{1F4F1}",earbuds:"\u{1F3A7}",watch:"\u231A",laptop:"\u{1F4BB}",
   tablet:"\u{1F4F1}",speaker:"\u{1F50A}",tv:"\u{1F4FA}",tracker:"\u{1F4CD}",
   keyboard:"\u2328",mouse:"\u{1F5B1}",keyboard_or_mouse:"\u2328",
   apple_device:"\u{1F34E}",earbuds_or_galaxy:"\u{1F3A7}",laptop_or_pc:"\u{1F4BB}",
-  unknown:"\u2753"};
+  beacon:"\u{1F4E1}",infra:"\u{1F3E0}",unknown:"\u2753"};
 const LABELS={phone:"Phones",earbuds:"Earbuds",watch:"Watches",laptop:"Laptops",
   tablet:"Tablets",speaker:"Speakers",tv:"TVs",tracker:"Trackers",
   keyboard:"Keyboards",mouse:"Mice",keyboard_or_mouse:"HID",
   apple_device:"Apple",earbuds_or_galaxy:"Galaxy",laptop_or_pc:"PC/Laptop",
-  unknown:"Unknown"};
+  beacon:"Beacons",infra:"Infrastructure",unknown:"Unknown"};
 
 async function tick(){
   let r;
@@ -59,6 +63,13 @@ async function tick(){
 
   const uc=document.getElementById("uncertain");
   uc.textContent=r.uncertain>0?"uncertain: "+r.uncertain:"";
+
+  if(r.sensors){
+    const sc=document.getElementById("sensors");
+    sc.innerHTML=Object.entries(r.sensors).map(([k,v])=>
+      `<span class="sensor ${v}">${k}</span>`
+    ).join("");
+  }
 }
 setInterval(tick,2000);tick();
 </script>

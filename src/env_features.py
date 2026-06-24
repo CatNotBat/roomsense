@@ -148,6 +148,11 @@ def build_env_table(readings, A=None, overlap=None, sensors=None,
     meta = pd.DataFrame(meta_rows)
 
     if len(X) > 0:
-        X = X.fillna(-120)
+        rssi_cols = [c for c in X.columns if not c.startswith("radar_")]
+        radar_cols = [c for c in X.columns if c.startswith("radar_")]
+        if rssi_cols:
+            X[rssi_cols] = X[rssi_cols].fillna(-120)
+        if radar_cols:
+            X[radar_cols] = X[radar_cols].fillna(0)
 
     return X, meta

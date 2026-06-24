@@ -32,7 +32,7 @@ def build_radar_features(radar_rows, t_start, t_end, sensors=None):
 
     # Filter to window
     rows = [r for r in radar_rows
-            if t_start <= r["ts"] <= t_end]
+            if t_start <= r["ts"] < t_end]
 
     feat = {}
 

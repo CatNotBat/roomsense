@@ -2,6 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from device_id import (device_type, company_id, fast_pair,
                        apple_continuity_types, is_infra_candidate,
+                       classify_random_addr,
                        APPLE, SAMSUNG, MSFT, GOOGLE)
 
 def test_apple_cid_le():
@@ -78,13 +79,13 @@ def test_apple_multi_tlv():
     assert 0x12 in types
     assert len(types) == 2
 
-def test_apple_handoff_type():
-    # TLV type=0x12 (Handoff) → phone
-    assert device_type(mfg_hex="4c001202aabb") == "phone"
+def test_apple_find_my_type():
+    # TLV type=0x12 (Find My / AirTag) → tracker
+    assert device_type(mfg_hex="4c001202aabb") == "tracker"
 
-def test_apple_airplay_only():
-    # TLV type=0x09 alone → apple_device (not phone or earbuds)
-    assert device_type(mfg_hex="4c000902aabb") == "apple_device"
+def test_apple_airplay_is_infra():
+    # TLV type=0x09 (AirPlay Target) → infra (not a person)
+    assert device_type(mfg_hex="4c000902aabb") == "infra"
 
 
 # --- Infrastructure ---
@@ -124,3 +125,44 @@ def test_short_mfg():
 
 def test_addr_type_3_is_phone():
     assert device_type(addr_type=3) == "phone"
+
+
+# --- New v3.1 classification ---
+
+def test_ibeacon_classified_as_beacon():
+    # Apple CID + type 0x02 length 0x15 = iBeacon
+    ibeacon_mfg = "4c000215" + "aa" * 21  # 0x02, len=0x15, then 21 bytes data
+    assert device_type(mfg_hex=ibeacon_mfg) == "beacon"
+
+def test_apple_homekit_is_infra():
+    # TLV type=0x06 (HomeKit)
+    assert device_type(mfg_hex="4c000602aabb") == "infra"
+
+def test_apple_airprint_is_infra():
+    # TLV type=0x01 (AirPrint)
+    assert device_type(mfg_hex="4c000102aabb") == "infra"
+
+def test_apple_watch_magic_switch():
+    # TLV type=0x0A (Magic Switch) → watch
+    assert device_type(mfg_hex="4c000a02aabb") == "watch"
+
+def test_classify_rpa():
+    # Top 2 bits = 01 → RPA
+    assert classify_random_addr("4a:bb:cc:dd:ee:ff") == "rpa"
+
+def test_classify_static_random():
+    # Top 2 bits = 11 → static
+    assert classify_random_addr("ca:bb:cc:dd:ee:ff") == "static"
+
+def test_classify_nrpa():
+    # Top 2 bits = 00 → non-resolvable
+    assert classify_random_addr("0a:bb:cc:dd:ee:ff") == "nrpa"
+
+def test_expanded_appearance_headphones():
+    assert device_type(appearance=0x0844) == "earbuds"
+
+def test_expanded_appearance_earbud():
+    assert device_type(appearance=0x0846) == "earbuds"
+
+def test_expanded_appearance_smartphone():
+    assert device_type(appearance=0x0041) == "phone"

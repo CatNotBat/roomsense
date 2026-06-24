@@ -9,7 +9,7 @@ Hard rules:
   - Addresses live ONLY inside this layer
   - Downstream of de-dup, NO MAC may exist — only {category → count}
 """
-import collections, time
+import collections, statistics, time
 import os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from config import RPA_TTL_S
@@ -151,8 +151,8 @@ def count_nearby_devices(rows, infra_allowlist=None, strong_thresh=-85,
     mac_sensor_vec = {}
     for mac, sensors in mac_sensor_rssi.items():
         all_rssi = [v for vals in sensors.values() for v in vals]
-        mac_avg_rssi[mac] = sum(all_rssi) / len(all_rssi)
-        mac_sensor_vec[mac] = {s: sum(v) / len(v) for s, v in sensors.items()}
+        mac_avg_rssi[mac] = statistics.median(all_rssi)
+        mac_sensor_vec[mac] = {s: statistics.median(v) for s, v in sensors.items()}
 
     # Classify nearby MACs into categories
     cat_macs = collections.defaultdict(list)

@@ -132,4 +132,5 @@ Deployment files ready in `deploy/`:
 - 10 frames per second
 - FOV: 120 degrees horizontal, 70 degrees vertical
 - Range: up to 6m positioning
-- Does NOT penetrate drywall at 24GHz (this is the feature, not a bug)
+- Penetrates drywall with only 1-3 dB one-way loss (use geometric features to distinguish rooms)
+- Blocked by concrete (20-30 dB), metal (>40 dB), brick (10-20 dB)

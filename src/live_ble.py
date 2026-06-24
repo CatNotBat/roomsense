@@ -51,6 +51,7 @@ dedup = RPADedup()
 _display = {}
 _prob_history = {}  # mac -> smoothed probability (EMA across evaluations)
 _type_cache = {}    # mac -> best known device type (specific beats generic)
+_sensor_last_seen = {s: 0.0 for s in SENSORS}  # sensor -> last packet timestamp
 
 # ---- MQTT ingest thread ----
 
@@ -59,12 +60,13 @@ def mqtt_thread():
         try:
             if msg.topic == TOPIC_RSSI:
                 p = msg.payload.decode().split("|")
-                # v3 format: source|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs
-                fields = (p + [""] * 8)[:8]
-                source, mac, rssi_s, atype_s, appr_s, mfg, svc, rx_ms = fields
+                # v3.1 format: source|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs|advType
+                fields = (p + [""] * 9)[:9]
+                source, mac, rssi_s, atype_s, appr_s, mfg, svc, rx_ms, advtype_s = fields
                 rssi = int(rssi_s)
                 addr_type = int(atype_s) if atype_s else 1
                 appearance = int(appr_s) if appr_s and appr_s != "" else -1
+                adv_type = int(advtype_s) if advtype_s else -1
                 # Always use brain-arrival time for live buffering (satellite
                 # SNTP clocks may drift). Training data uses its own timestamps.
                 ts = time.time()
@@ -74,6 +76,7 @@ def mqtt_thread():
                         "rssi": calibrate_rssi(rssi, source),
                         "addr_type": addr_type, "appearance": appearance,
                         "mfg_hex": mfg, "svc_hex": svc,
+                        "adv_type": adv_type,
                     })
 
             elif msg.topic == TOPIC_RADAR:
@@ -111,6 +114,20 @@ def mqtt_thread():
 # ---- Classification + display ----
 
 VOTE_K, VOTE_N = VOTE_OF_N  # need K of N votes to show
+SENSOR_WARN_S = WINDOW_S * 2  # warn if no packets for 2 windows
+
+
+def _sensor_health(now):
+    """Return per-sensor health status."""
+    status = {}
+    for s in SENSORS:
+        last = _sensor_last_seen.get(s, 0)
+        age = now - last if last > 0 else float("inf")
+        if age > SENSOR_WARN_S:
+            status[s] = "offline"
+        else:
+            status[s] = "ok"
+    return status
 
 
 def evaluate():
@@ -128,7 +145,13 @@ def evaluate():
 
     if not rows:
         return {"level": "quiet", "counts": {}, "total": 0, "uncertain": 0,
-                "room_prob": 0.0}
+                "room_prob": 0.0, "sensors": _sensor_health(now)}
+
+    # Track per-sensor last-seen time
+    for r in rows:
+        src = r.get("source")
+        if src and r["ts"] > _sensor_last_seen.get(src, 0):
+            _sensor_last_seen[src] = r["ts"]
 
     # Build DataFrame from buffer
     df = pd.DataFrame([{"ts": r["ts"], "source": r["source"], "mac": r["mac"],
@@ -148,7 +171,7 @@ def _evaluate_env(df, rows, now, radar_rows=None):
                               radar_readings=radar_rows)
     if len(X) == 0:
         return {"level": "quiet", "counts": {}, "total": 0, "uncertain": 0,
-                "room_prob": 0.0}
+                "room_prob": 0.0, "sensors": _sensor_health(now)}
 
     X = X.reindex(columns=COLS, fill_value=-120)
     prob = MODEL.predict_proba(X)[:, 1]
@@ -177,6 +200,7 @@ def _evaluate_env(df, rows, now, radar_rows=None):
         "total": total,
         "uncertain": 0,
         "room_prob": round(room_prob, 3),
+        "sensors": _sensor_health(now),
     }
 
 
@@ -248,8 +272,16 @@ def _evaluate_per_device(df, rows, now):
                 _type_cache[mac] = cat
             inside_devices[mac] = cat
 
-            # Build RSSI vector for dedup
-            rssi_vec = [sum(mac_rssi.get(mac, [-120])) / max(1, len(mac_rssi.get(mac, [-120])))]
+            # Build per-sensor RSSI vector for spatial dedup
+            mac_per_sensor = collections.defaultdict(list)
+            for r in rows:
+                if r["mac"] == mac:
+                    mac_per_sensor[r["source"]].append(r["rssi"])
+            rssi_vec = [
+                (sum(mac_per_sensor[s]) / len(mac_per_sensor[s]))
+                if s in mac_per_sensor else -120
+                for s in SENSORS
+            ]
             dedup.update(mac, rssi_vec, cat)
 
     # De-dup: get category counts (no MAC exits this call)
@@ -291,6 +323,7 @@ def _evaluate_per_device(df, rows, now):
         "total": total,
         "uncertain": len(uncertain_macs),
         "room_prob": 0.0,
+        "sensors": _sensor_health(now),
     }
 
 
