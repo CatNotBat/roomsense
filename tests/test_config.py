@@ -21,8 +21,9 @@ def test_hash_mac_length():
 
 
 def test_sensors_default():
-    assert len(SENSORS) == 4
+    assert len(SENSORS) == 5
     assert SENSORS[0] == "esp_c1"
+    assert SENSORS[4] == "esp_hub"
 
 
 def test_window_default():

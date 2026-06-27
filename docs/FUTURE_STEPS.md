@@ -1,4 +1,4 @@
-# Room Sentinel v2 — Future Steps
+# RoomSense v2 — Future Steps
 
 ## When Hardware Arrives
 
@@ -26,8 +26,8 @@
 
 6. Verify MQTT messages:
    ```bash
-   mosquitto_sub -t sentinel/rssi -C 3    # should see BLE readings
-   mosquitto_sub -t sentinel/radar -C 3   # should see radar frames
+   mosquitto_sub -t roomsense/rssi -C 3    # should see BLE readings
+   mosquitto_sub -t roomsense/radar -C 3   # should see radar frames
    ```
 
 ### Step 2: Flash All 4 Boards (15 min)
@@ -72,7 +72,7 @@ python src/live_ble.py
 # -> http://localhost:8080
 ```
 
-The system auto-detects the fused model and subscribes to both `sentinel/rssi` and `sentinel/radar`.
+The system auto-detects the fused model and subscribes to both `roomsense/rssi` and `roomsense/radar`.
 
 ---
 
@@ -90,11 +90,11 @@ The system auto-detects the fused model and subscribes to both `sentinel/rssi` a
 
 ### Deploy to Raspberry Pi 4B
 Deployment files ready in `deploy/`:
-1. Copy repo to RPi: `rsync -av --exclude .venv . pi@<rpi_ip>:/opt/room-sentinel/`
-2. Run setup: `sudo bash /opt/room-sentinel/deploy/setup-rpi.sh`
-3. Copy trained model + calibration to `/opt/room-sentinel/models/` and `/opt/room-sentinel/calibration/`
+1. Copy repo to RPi: `rsync -av --exclude .venv . pi@<rpi_ip>:/opt/roomsense/`
+2. Run setup: `sudo bash /opt/roomsense/deploy/setup-rpi.sh`
+3. Copy trained model + calibration to `/opt/roomsense/models/` and `/opt/roomsense/calibration/`
 4. Update ESP32 firmware `MQTT_SERVER` to RPi's IP, re-flash all 4 nodes
-5. Start: `sudo systemctl start room-sentinel`
+5. Start: `sudo systemctl start roomsense`
 6. Optional: 5" DSI IPS screen + `deploy/kiosk.sh` for dedicated dashboard display
 
 ### Adaptive Threshold

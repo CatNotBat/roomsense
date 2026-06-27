@@ -26,7 +26,7 @@ REAL_MACS = {
     "90:dd:5d:bd:fa:94",  # Phone Nearby Info (flat -72 everywhere — adversarial case)
 }
 
-BEACON_MAC = os.getenv("SENTINEL_BEACON_MAC", "00:00:00:00:00:00").lower()
+BEACON_MAC = os.getenv("ROOMSENSE_BEACON_MAC", "00:00:00:00:00:00").lower()
 
 
 def header(title):
@@ -404,7 +404,7 @@ def final_verdict(auc_full, auc_diff):
 
 if __name__ == "__main__":
     print("\n" + "#" * 60)
-    print("  ROOM SENTINEL — PHASE 0 DIAGNOSTICS")
+    print("  ROOMSENSE — PHASE 0 DIAGNOSTICS")
     print("  Calibration vs Discrimination Analysis")
     print("#" * 60)
 

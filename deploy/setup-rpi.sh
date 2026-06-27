@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Room Sentinel — RPi 4B setup script
+# RoomSense — RPi 4B setup script
 # Run as root: sudo bash deploy/setup-rpi.sh
 set -euo pipefail
 
-INSTALL_DIR="/opt/room-sentinel"
+INSTALL_DIR="/opt/roomsense"
 SERVICE_USER="sentinel"
 
-echo "=== Room Sentinel RPi Setup ==="
+echo "=== RoomSense RPi Setup ==="
 
 # 1. System packages
 echo "[1/6] Installing system packages..."
@@ -15,7 +15,7 @@ apt-get install -y -qq mosquitto mosquitto-clients python3 python3-venv
 
 # 2. Enable and start Mosquitto
 echo "[2/6] Configuring Mosquitto..."
-cp "$INSTALL_DIR/mosquitto_local.conf" /etc/mosquitto/conf.d/room-sentinel.conf
+cp "$INSTALL_DIR/mosquitto_local.conf" /etc/mosquitto/conf.d/roomsense.conf
 systemctl enable mosquitto
 systemctl restart mosquitto
 
@@ -37,19 +37,19 @@ chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
 
 # 6. Install and start service
 echo "[6/6] Installing systemd service..."
-cp "$INSTALL_DIR/deploy/room-sentinel.service" /etc/systemd/system/
-cp "$INSTALL_DIR/deploy/room-sentinel.env" /etc/room-sentinel.env
+cp "$INSTALL_DIR/deploy/roomsense.service" /etc/systemd/system/
+cp "$INSTALL_DIR/deploy/roomsense.env" /etc/roomsense.env
 systemctl daemon-reload
-systemctl enable room-sentinel
+systemctl enable roomsense
 
 echo ""
 echo "=== Setup complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. Copy your trained model to $INSTALL_DIR/models/model.joblib"
-echo "  2. Start the service:  sudo systemctl start room-sentinel"
-echo "  3. Check status:       sudo systemctl status room-sentinel"
-echo "  4. View logs:          journalctl -u room-sentinel -f"
+echo "  2. Start the service:  sudo systemctl start roomsense"
+echo "  3. Check status:       sudo systemctl status roomsense"
+echo "  4. View logs:          journalctl -u roomsense -f"
 echo "  5. Open dashboard:     http://$(hostname -I | awk '{print $1}'):8080"
 echo ""
 echo "To update firmware MQTT_SERVER on your ESP32 nodes,"

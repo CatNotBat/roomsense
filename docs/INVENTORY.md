@@ -1,4 +1,4 @@
-# Room Sentinel — Pipeline Inventory (Phase 0)
+# RoomSense — Pipeline Inventory (Phase 0)
 
 Generated 2026-06-18. Updated 2026-06-20 after v3_env implementation.
 
@@ -9,7 +9,7 @@ Generated 2026-06-18. Updated 2026-06-20 after v3_env implementation.
 ```
 ESP32 Satellite                 MQTT Broker              Brain
 ───────────────────────────────────────────────────────────────
-BLE scan callback               topic: sentinel/rssi
+BLE scan callback               topic: roomsense/rssi
   onResult(BLEAdvertisedDevice)   7 pipe-delimited fields
   ↓                               ↓
   MQTT publish ──────────────────→ on_message()
@@ -48,7 +48,7 @@ BLE scan callback               topic: sentinel/rssi
 
 ### 2.1 Wire format (satellite → MQTT)
 
-Topic: `sentinel/rssi`. Payload: pipe-delimited, 7 fields.
+Topic: `roomsense/rssi`. Payload: pipe-delimited, 7 fields.
 
 ```
 SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex

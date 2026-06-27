@@ -1,14 +1,14 @@
 /*
- * Room Sentinel v2 — BLE + LD2450 mmWave combo node
+ * RoomSense v2 — BLE + LD2450 mmWave combo node
  * Flash to all 4 WR-32 boards, changing SENSOR_ID on each.
  *
  * Core 1 (Arduino default): WiFi + SNTP + MQTT + BLE scan
  * Core 0 (FreeRTOS task):   LD2450 UART reader + MQTT publish
  *
- * Publishes BLE to "sentinel/rssi" (v3.1 format — added advType field):
+ * Publishes BLE to "roomsense/rssi" (v3.1 format — added advType field):
  *   SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs|advType
  *
- * Publishes radar to "sentinel/radar":
+ * Publishes radar to "roomsense/radar":
  *   SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|x1|y1|spd1|dist1|x2|y2|spd2|dist2
  *
  * LD2450 wiring: TX→GPIO16(RX2), RX→GPIO17(TX2), VCC→5V, GND→GND
@@ -23,7 +23,7 @@
 #include <time.h>
 #include "secrets.h"
 
-// *** CHANGE PER BOARD: esp_c1 / esp_c2 / esp_c3 / esp_c4 ***
+// *** CHANGE PER BOARD: esp_c1 / esp_c2 / esp_c3 / esp_c4 / esp_hub ***
 #define SENSOR_ID "esp_c1"
 
 // SNTP config
@@ -154,7 +154,7 @@ void radarTask(void* param) {
             targets[2].x_mm, targets[2].y_mm,
             targets[2].speed_mms, targets[2].dist_mm);
 
-          safePub("sentinel/radar", payload);
+          safePub("roomsense/radar", payload);
         }
 
         // Reset for next frame
@@ -219,7 +219,7 @@ class SatelliteCallbacks : public BLEAdvertisedDeviceCallbacks {
     snprintf(buf, sizeof(buf), "%s|%s|%d|%d|%d|%s|%s|%llu|%d",
              SENSOR_ID, mac.c_str(), rssi, addrType,
              appearance, mfgHex.c_str(), svcHex.c_str(), rxMs, advType);
-    safePub("sentinel/rssi", buf);
+    safePub("roomsense/rssi", buf);
   }
 };
 

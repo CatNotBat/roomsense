@@ -12,7 +12,7 @@ const int N_LEVELS = 4;
 int idx = 0;
 
 void setup() {
-  BLEDevice::init("SENTINEL_BEACON");
+  BLEDevice::init("ROOMSENSE_BEACON");
   BLEAdvertising *adv = BLEDevice::getAdvertising();
   adv->setMinInterval(0x20);   // ~20 ms - advertise often for dense RSSI samples
   adv->setMaxInterval(0x30);

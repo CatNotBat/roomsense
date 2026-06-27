@@ -1,4 +1,4 @@
-"""mmWave radar (HLK-LD2450) feature extraction for Room Sentinel v2.
+"""mmWave radar (HLK-LD2450) feature extraction for RoomSense v2.
 
 Ingests buffered radar frames and produces per-window features
 aligned with BLE aggregation windows.

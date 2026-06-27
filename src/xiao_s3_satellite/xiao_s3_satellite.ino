@@ -1,5 +1,5 @@
 /*
- * Room Sentinel v3 — BLE-only satellite sensor (Seeed XIAO ESP32-S3 variant)
+ * RoomSense v3 — BLE-only satellite sensor (Seeed XIAO ESP32-S3 variant)
  *
  * Functionally identical to esp32_satellite.ino.
  * Differences: onboard RGB LED on GPIO 21 for status, USB-C native.
@@ -14,7 +14,7 @@
  * Flash:
  *   arduino-cli upload --fqbn esp32:esp32:XIAO_ESP32S3 -p /dev/ttyACM0
  *
- * Publishes to MQTT topic "sentinel/rssi" with pipe-delimited payload:
+ * Publishes to MQTT topic "roomsense/rssi" with pipe-delimited payload:
  *   SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs
  */
 
@@ -116,7 +116,7 @@ class SatelliteCallbacks : public BLEAdvertisedDeviceCallbacks {
     snprintf(buf, sizeof(buf), "%s|%s|%d|%d|%d|%s|%s|%llu",
              SENSOR_ID, mac.c_str(), rssi, addrType,
              appearance, mfgHex.c_str(), svcHex.c_str(), rxMs);
-    mq.publish("sentinel/rssi", buf);
+    mq.publish("roomsense/rssi", buf);
   }
 };
 

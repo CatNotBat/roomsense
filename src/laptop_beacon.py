@@ -7,14 +7,14 @@ measure RSSI from a known position. Uses BlueZ D-Bus API via the
 
 Usage:
     sudo python src/laptop_beacon.py              # broadcast for 60s
-    sudo SENTINEL_CAL_DURATION_S=120 python src/laptop_beacon.py
+    sudo ROOMSENSE_CAL_DURATION_S=120 python src/laptop_beacon.py
 
 Requires: Linux with BlueZ 5.x, bluetoothctl available.
-The laptop's BLE MAC is printed at start — set SENTINEL_BEACON_MAC to it.
+The laptop's BLE MAC is printed at start — set ROOMSENSE_BEACON_MAC to it.
 """
 import subprocess, time, os, sys, signal
 
-DURATION = int(os.getenv("SENTINEL_CAL_DURATION_S", "60"))
+DURATION = int(os.getenv("ROOMSENSE_CAL_DURATION_S", "60"))
 
 
 def get_local_mac():
@@ -37,7 +37,7 @@ def advertise(duration_s):
     mac = get_local_mac()
     if mac:
         print(f"Laptop BLE MAC: {mac}")
-        print(f"Set SENTINEL_BEACON_MAC={mac} for calibration")
+        print(f"Set ROOMSENSE_BEACON_MAC={mac} for calibration")
     else:
         print("WARNING: Could not determine BLE MAC")
 
@@ -48,7 +48,7 @@ def advertise(duration_s):
     cmds = [
         "power on",
         "discoverable on",
-        "set-alias SENTINEL_BEACON",
+        "set-alias ROOMSENSE_BEACON",
         "advertise on",
     ]
 

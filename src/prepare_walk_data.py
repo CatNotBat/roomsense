@@ -66,6 +66,8 @@ def prepare(readings_path, labels_path, output_path,
 
     # Ensure columns match what train.py expects
     required = ["ts", "source", "mac", "rssi", "position", "inout"]
+    # Preserve v4 columns if present (appearance, adv_type)
+    optional_cols = ["addr_type", "appearance", "mfg_hex", "svc_hex", "rx_ms", "adv_type"]
     for col in required:
         if col not in result.columns:
             print(f"ERROR: missing required column: {col}")

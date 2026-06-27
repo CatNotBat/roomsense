@@ -1,4 +1,4 @@
-# Room Sentinel
+# RoomSense
 
 Privacy-preserving room occupancy detection using BLE fingerprinting + mmWave radar fusion. Detects how many people are in a room and what devices they carry — no cameras, no identity tracking. Categories and counts only, never identities.
 
@@ -22,7 +22,7 @@ These features are identical whether a phone has rotated its address or not.
 
 ```
    esp_c1 (WR-32) ─┐                                          ┌─ esp_c3 (WR-32)
-     BLE + LD2450   ├── MQTT (sentinel/rssi + sentinel/radar) ──┤  BLE + LD2450
+     BLE + LD2450   ├── MQTT (roomsense/rssi + roomsense/radar) ──┤  BLE + LD2450
    esp_c2 (WR-32) ─┘                                          └─ esp_c4 (WR-32)
                                     │
                                     v
@@ -147,11 +147,11 @@ All tunables in `src/config.py`, overridable via environment variables:
 
 | Parameter | Env Var | Default | Purpose |
 |-----------|---------|---------|---------|
-| `SENSORS` | `SENTINEL_SENSORS` | `esp_c1,esp_c2,esp_c3,esp_c4` | Satellite IDs |
-| `THRESH` | `SENTINEL_THRESH` | `0.50` | Classification threshold |
-| `AGG_WINDOW_S` | `SENTINEL_AGG_WINDOW_S` | `20` | Aggregation window (seconds) |
-| `MQTT_HOST` | `SENTINEL_MQTT_HOST` | `localhost` | MQTT broker address |
-| `FLASK_PORT` | `SENTINEL_FLASK_PORT` | `8080` | Web UI port |
+| `SENSORS` | `ROOMSENSE_SENSORS` | `esp_c1,esp_c2,esp_c3,esp_c4` | Satellite IDs |
+| `THRESH` | `ROOMSENSE_THRESH` | `0.50` | Classification threshold |
+| `AGG_WINDOW_S` | `ROOMSENSE_AGG_WINDOW_S` | `20` | Aggregation window (seconds) |
+| `MQTT_HOST` | `ROOMSENSE_MQTT_HOST` | `localhost` | MQTT broker address |
+| `FLASK_PORT` | `ROOMSENSE_FLASK_PORT` | `8080` | Web UI port |
 
 ## API
 
@@ -198,6 +198,6 @@ See [FUTURE_STEPS.md](FUTURE_STEPS.md) for the roadmap.
 
 ### MQTT Wire Protocol (v2)
 
-**BLE** (`sentinel/rssi`): 8 pipe-delimited fields: `SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs`
+**BLE** (`roomsense/rssi`): 8 pipe-delimited fields: `SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs`
 
-**Radar** (`sentinel/radar`): 15 pipe-delimited fields: `SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|x1|y1|spd1|dist1|x2|y2|spd2|dist2`
+**Radar** (`roomsense/radar`): 15 pipe-delimited fields: `SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|x1|y1|spd1|dist1|x2|y2|spd2|dist2`

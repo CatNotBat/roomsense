@@ -293,7 +293,7 @@ with open("models/metrics.json", "w") as f:
 # Short report
 n_sensors = len([s for s in df["source"].unique() if s.startswith("esp_")])
 with open("models/REPORT.md", "w") as f:
-    f.write("# Room Sentinel v3 — Training Report\n\n")
+    f.write("# RoomSense v3 — Training Report\n\n")
     f.write(f"Trained: {metrics['trained_at']}\n")
     f.write(f"Samples: {len(X)} ({y.sum()} inside, {(y==0).sum()} outside)\n")
     f.write(f"Window: {window_label}\n\n")

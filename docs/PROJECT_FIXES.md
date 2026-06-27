@@ -1,4 +1,4 @@
-# Room Sentinel — Pipeline Correctness Fixes (do this BEFORE any discrimination re-test)
+# RoomSense — Pipeline Correctness Fixes (do this BEFORE any discrimination re-test)
 
 ## Context for the agent
 

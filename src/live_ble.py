@@ -37,7 +37,7 @@ USE_AGG = MODEL_VERSION == "v3" and not USE_ENV
 MAPIE_MODEL = bundle.get("mapie")
 MAPIE_ALPHA = bundle.get("mapie_alpha", 0.10)
 BUFFER_S = WINDOW_S * 2 if USE_ENV else (AGG_WINDOW_S if USE_AGG else WINDOW_S * 2)
-THRESH = CFG_THRESHOLD if os.getenv("SENTINEL_THRESH") else bundle.get("threshold", CFG_THRESHOLD)
+THRESH = CFG_THRESHOLD if os.getenv("ROOMSENSE_THRESH") else bundle.get("threshold", CFG_THRESHOLD)
 
 # Load empty-room baseline (optional)
 _baseline = BaselineCapture.load()
@@ -416,5 +416,5 @@ if __name__ == "__main__":
 
     threading.Thread(target=mqtt_thread, daemon=True).start()
     mode = "env+radar" if USE_ENV and HAS_RADAR else ("env" if USE_ENV else ("agg" if USE_AGG else "legacy"))
-    print(f"Room Sentinel v3 ({mode}) — thresh={THRESH:.2f} — {FLASK_HOST}:{FLASK_PORT}")
+    print(f"RoomSense v3 ({mode}) — thresh={THRESH:.2f} — {FLASK_HOST}:{FLASK_PORT}")
     app.run(host=FLASK_HOST, port=FLASK_PORT)

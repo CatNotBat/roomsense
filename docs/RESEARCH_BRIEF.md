@@ -1,4 +1,4 @@
-# Room Sentinel — Research Brief: The Transfer Problem
+# RoomSense — Research Brief: The Transfer Problem
 
 ## What we're building
 

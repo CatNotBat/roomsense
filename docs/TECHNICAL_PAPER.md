@@ -1,4 +1,4 @@
-# Room Sentinel — Technical Paper
+# RoomSense — Technical Paper
 
 *A complete technical reference for the project. Covers every design decision, the full evolution from v1 to v2, all ML and signal-processing choices, the physics, the failures, and the current state.*
 
@@ -8,7 +8,7 @@
 
 ## Table of Contents
 
-1. [What Room Sentinel Does](#1-what-room-sentinel-does)
+1. [What RoomSense Does](#1-what-roomsense-does)
 2. [The Problem: Why This Is Hard](#2-the-problem-why-this-is-hard)
 3. [Hardware Architecture](#3-hardware-architecture)
 4. [Firmware Design](#4-firmware-design)
@@ -29,9 +29,9 @@
 
 ---
 
-## 1. What Room Sentinel Does
+## 1. What RoomSense Does
 
-Room Sentinel answers one question: **"How many people are in this room and what devices do they carry?"**
+RoomSense answers one question: **"How many people are in this room and what devices do they carry?"**
 
 Output example: `{"phone": 2, "earbuds": 1, "watch": 1}` — categories and counts, never identities.
 
@@ -79,14 +79,14 @@ Apple devices rotate their BLE MAC address every ~15 minutes. Android devices do
 **v1 (BLE-only):**
 - Mixed hardware: 2× XIAO ESP32-S3 + 2× ESP32-D0WD classic boards
 - BLE scanning only, MQTT publish
-- Single MQTT topic: `sentinel/rssi`
+- Single MQTT topic: `roomsense/rssi`
 - Achieved: 93.8% accuracy (excluding RF-transparent wall)
 
 **v2 (BLE + mmWave radar fusion):**
 - Uniform hardware: 4× WR-32 ESP32 boards (CH340C USB, ~$3 each)
 - Each board paired with HLK-LD2450 24GHz FMCW radar (~$3–5 each)
 - Dual-core: Core 1 = WiFi + BLE + MQTT, Core 0 = LD2450 UART reader
-- Two MQTT topics: `sentinel/rssi` (BLE) + `sentinel/radar` (mmWave)
+- Two MQTT topics: `roomsense/rssi` (BLE) + `roomsense/radar` (mmWave)
 - Purpose: solve the RF-transparent wall problem that BLE alone cannot fix
 
 ### 3.2 Default deployment (2-node)
@@ -136,7 +136,7 @@ The ESP32 has two cores. We use both:
 - Runs BLE passive scan at ~99% duty cycle (interval 100ms, window 99ms)
 - On each BLE advertisement received, publishes to MQTT:
   ```
-  sentinel/rssi: SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs|advType
+  roomsense/rssi: SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs|advType
   ```
 - Fields: sensor ID, MAC address, RSSI (dBm), address type (0=public, 1=random), GAP appearance code, manufacturer data hex (up to 80 chars), service data hex, timestamp (epoch milliseconds), advertisement type (connectable/non-connectable)
 
@@ -147,7 +147,7 @@ The ESP32 has two cores. We use both:
 - Sign convention: bit 15 is sign flag, bits 14–0 are magnitude (not two's complement)
 - Publishes to MQTT:
   ```
-  sentinel/radar: SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|...|x2|y2|spd2|dist2
+  roomsense/radar: SENSOR_ID|epochMs|nTargets|x0|y0|spd0|dist0|...|x2|y2|spd2|dist2
   ```
 
 **Thread safety:** A FreeRTOS mutex protects the shared MQTT client. The mutex timeout is 50ms (increased from 5ms after discovering that shorter timeouts caused radar frame drops — the BLE callback on Core 1 was holding the mutex too long).
@@ -582,7 +582,7 @@ Expected improvement: +8–15% on RF-transparent wall accuracy.
 ### 11.1 Architecture (live_ble.py)
 
 ```
-MQTT (sentinel/rssi + sentinel/radar)
+MQTT (roomsense/rssi + roomsense/radar)
     │
     ▼
 ┌─────────────────────────┐
@@ -896,19 +896,19 @@ arduino-cli upload --fqbn esp32:esp32:esp32:PartitionScheme=huge_app \
   -p /dev/ttyUSB0 src/wr32_combo/
 
 # 2. Copy to RPi
-rsync -av --exclude .venv . sentinel@192.168.1.200:/opt/room-sentinel/
+rsync -av --exclude .venv . sentinel@192.168.1.200:/opt/roomsense/
 
 # 3. Run setup (installs Mosquitto, Python, systemd service)
-sudo bash /opt/room-sentinel/deploy/setup-rpi.sh
+sudo bash /opt/roomsense/deploy/setup-rpi.sh
 
 # 4. Copy trained model
-cp models/model.joblib /opt/room-sentinel/models/
+cp models/model.joblib /opt/roomsense/models/
 
 # 5. Start
-sudo systemctl start room-sentinel
+sudo systemctl start roomsense
 
 # 6. Optional: enable kiosk mode (5" screen)
-bash /opt/room-sentinel/deploy/kiosk.sh
+bash /opt/roomsense/deploy/kiosk.sh
 ```
 
 ### 17.2 Systemd service
@@ -998,7 +998,7 @@ Where:
 | Cluttered indoor | 3.0–4.0 |
 | Through 1 wall | 3.5–5.0 |
 
-**Why this matters for Room Sentinel:**
+**Why this matters for RoomSense:**
 - At n=2.5, doubling distance loses ~7.5 dB. That's within the noise margin (σ = 4–8 dB).
 - At 5 meters, the RSSI difference between n=2.0 and n=3.0 is 7 dB — enormous, but you don't know n in advance.
 - This is why RSSI → distance conversion is unreliable indoors (±2–3 meter errors).
@@ -1085,11 +1085,11 @@ Radio propagation between a transmitter and receiver isn't a laser beam — it's
 
 ## Appendix B: Machine Learning Foundations
 
-*The ML concepts behind Room Sentinel, explained for someone who can code but hasn't done formal ML.*
+*The ML concepts behind RoomSense, explained for someone who can code but hasn't done formal ML.*
 
 ### B.1 Classification vs. Regression
 
-Room Sentinel is a **binary classification** problem: is the room occupied (1) or empty (0)? We don't predict a continuous value (regression) like "how many people" — we predict a probability (0.0 to 1.0) and threshold it.
+RoomSense is a **binary classification** problem: is the room occupied (1) or empty (0)? We don't predict a continuous value (regression) like "how many people" — we predict a probability (0.0 to 1.0) and threshold it.
 
 **Why binary, not multi-class?**
 - Multi-class (0 people, 1 person, 2 people, ...) would require training data for each count
@@ -1218,7 +1218,7 @@ Every ML model balances two types of errors:
 - **Bias:** The model is too simple to capture the real pattern. Example: using only 1 feature (env_median) to classify — misses the spatial fingerprint.
 - **Variance:** The model is too complex and memorizes noise. Example: a single deep tree that perfectly fits training data but fails on new data.
 
-**Where Room Sentinel sits:**
+**Where RoomSense sits:**
 - 300-tree Random Forest with 50 features on 200 samples: moderate variance risk
 - Environment-level features (aggregates, not raw readings): low bias (captures the relevant patterns)
 - LOPO reveals the actual bias-variance balance: 93.8% on non-wall positions means we're in a good sweet spot
@@ -1340,7 +1340,7 @@ ToA/TDoA use precise timing to calculate distance from signal travel time.
 
 Commercial occupancy systems exist (e.g., Density, VergeSense, Butlr).
 
-| Feature | Room Sentinel | Commercial |
+| Feature | RoomSense | Commercial |
 |---------|---------------|------------|
 | Cost | ~$70 | $500–2000 per room |
 | Privacy | Structural (no identity data) | Policy (trust vendor) |
@@ -1350,7 +1350,7 @@ Commercial occupancy systems exist (e.g., Density, VergeSense, Butlr).
 | Accuracy | 93.8% | 95–99% (with more sensors/modalities) |
 | Setup time | 30 min | Professional installation |
 
-Room Sentinel trades peak accuracy for privacy, cost, and independence.
+RoomSense trades peak accuracy for privacy, cost, and independence.
 
 ### C.7 "Why 4 sensors? Isn't that overkill?"
 
@@ -1417,7 +1417,7 @@ Our innovation is the combination of:
 
 | Project | Method | Privacy | Cost | Accuracy |
 |---------|--------|---------|------|----------|
-| **Room Sentinel** | BLE env fingerprint + radar | Structural (no identity data) | ~$70 | 93.8% |
+| **RoomSense** | BLE env fingerprint + radar | Structural (no identity data) | ~$70 | 93.8% |
 | ESP32 presence detection (community) | BLE device tracking | None (tracks MACs) | ~$5 | ~60–80% |
 | ESPresense | BLE trilateration | Partial (hashes MACs) | ~$15–30 | ~70–85% |
 | mmWave-only (LD2410) | Radar presence | Full (no RF ID) | ~$5 | ~95% presence, no device ID |
@@ -1460,7 +1460,7 @@ Depends on the use case:
 ### "What about spoofing / adversarial attacks?"
 
 Someone could theoretically:
-1. **Broadcast fake BLE advertisements** to make the room appear occupied when it isn't — yes, this works. Room Sentinel is not a security system. It's for convenience (HVAC, lighting, occupancy analytics).
+1. **Broadcast fake BLE advertisements** to make the room appear occupied when it isn't — yes, this works. RoomSense is not a security system. It's for convenience (HVAC, lighting, occupancy analytics).
 2. **Flood the BLE spectrum** to jam detection — possible but would also jam all Bluetooth devices in the area (earbuds, keyboards, etc.). Obviously destructive.
 3. **Try to extract identity data** from the system — structurally impossible. The API returns `{"phone": 2}`, not MAC addresses. Even compromising the brain's memory during runtime only reveals volatile, TTL'd MAC entries that expire in 60 seconds.
 
@@ -1558,4 +1558,4 @@ Total: ~2 hours to go from zero to being able to debate anyone on the project.
 
 ---
 
-*This document is the single source of truth for all Room Sentinel design decisions. If this document and the code disagree, the code is right and this document needs updating.*
+*This document is the single source of truth for all RoomSense design decisions. If this document and the code disagree, the code is right and this document needs updating.*

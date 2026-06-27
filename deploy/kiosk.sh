@@ -4,7 +4,7 @@
 #
 # Requires: chromium-browser (pre-installed on Raspberry Pi OS)
 
-# Wait for the sentinel service to be ready
+# Wait for the roomsense service to be ready
 sleep 5
 
 # Hide mouse cursor after 3s idle

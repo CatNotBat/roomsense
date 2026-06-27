@@ -1,8 +1,8 @@
 /*
- * Room Sentinel v3 — BLE-only satellite sensor
+ * RoomSense v3 — BLE-only satellite sensor
  * Flash to all 4 boards, changing SENSOR_ID on each.
  *
- * Publishes to MQTT topic "sentinel/rssi" with pipe-delimited payload:
+ * Publishes to MQTT topic "roomsense/rssi" with pipe-delimited payload:
  *   SENSOR_ID|mac|rssi|addrType|appearance|mfgHex|svcHex|rxMs
  *
  * rxMs = epoch milliseconds at packet reception (SNTP-synced).
@@ -103,7 +103,7 @@ class SatelliteCallbacks : public BLEAdvertisedDeviceCallbacks {
     snprintf(buf, sizeof(buf), "%s|%s|%d|%d|%d|%s|%s|%llu",
              SENSOR_ID, mac.c_str(), rssi, addrType,
              appearance, mfgHex.c_str(), svcHex.c_str(), rxMs);
-    mq.publish("sentinel/rssi", buf);
+    mq.publish("roomsense/rssi", buf);
   }
 };
 
@@ -132,7 +132,7 @@ void sntpInit() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Sentinel satellite v3 booting...");
+  Serial.println("RoomSense satellite v3 booting...");
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);

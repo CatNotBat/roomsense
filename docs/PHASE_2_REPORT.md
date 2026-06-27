@@ -18,12 +18,12 @@
 - Missing sensor filled with -120 dBm (indistinguishable from very weak signal)
 
 ### After
-- Strict W/2 = 100ms max gap from center (configurable via `SENTINEL_COHEARING_W_MS`)
+- Strict W/2 = 100ms max gap from center (configurable via `ROOMSENSE_COHEARING_W_MS`)
 - Missing sensors are NaN, not -120
 - n_heard accurately reflects how many sensors contributed
 
 ### Config
-- `SENTINEL_COHEARING_W_MS` = 200 (default)
+- `ROOMSENSE_COHEARING_W_MS` = 200 (default)
 
 ---
 
@@ -77,8 +77,8 @@
 | Channel handling | Mixed | Averaged by 20s aggregation |
 
 ### Config
-- `SENTINEL_AGG_WINDOW_S` = 20 (default)
-- `SENTINEL_AGG_OVERLAP` = 0.5 (default)
+- `ROOMSENSE_AGG_WINDOW_S` = 20 (default)
+- `ROOMSENSE_AGG_OVERLAP` = 0.5 (default)
 
 ---
 
@@ -106,7 +106,7 @@
 - **Reference delta:** Requires a sensor placed outside the room (optional)
 
 ### Config
-- `SENTINEL_REFERENCE_SENSOR` = "" (default, no reference node)
+- `ROOMSENSE_REFERENCE_SENSOR` = "" (default, no reference node)
 
 ---
 
@@ -140,7 +140,7 @@
 
 1. ✅ Co-hearing alignment refuses to pair readings > W apart (test_far_readings_not_paired)
 2. ✅ n_heard correctly reflects co-hearing sample count (test_missing_sensor_is_nan)
-3. ✅ W is configurable (SENTINEL_COHEARING_W_MS)
+3. ✅ W is configurable (ROOMSENSE_COHEARING_W_MS)
 4. ✅ Aggregation windows A and overlap are configurable
 5. ✅ Distributional stats computed correctly (test_distributional_stats)
 6. ✅ frac_subwindows_heard correct (test_frac_heard)

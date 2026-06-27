@@ -59,7 +59,7 @@ Calibration completed 2026-06-20 using multi-beacon method (26 shared BLE device
 - Auto-calibration added: `rssi_cal.auto_calibrate()` runs on first startup if no offsets exist
 
 ### Config
-- `SENTINEL_BEACON_MAC` — beacon MAC for manual calibration
+- `ROOMSENSE_BEACON_MAC` — beacon MAC for manual calibration
 - Auto-calibration needs no config — uses shared-device method automatically
 
 ---

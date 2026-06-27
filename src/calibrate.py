@@ -9,7 +9,7 @@ duration, computes per-node offsets, and saves them.
 
 Usage:
     python src/calibrate.py                          # default 60s
-    SENTINEL_CAL_DURATION_S=120 python src/calibrate.py
+    ROOMSENSE_CAL_DURATION_S=120 python src/calibrate.py
 """
 import json, os, time, signal, sys
 import paho.mqtt.client as mqtt
@@ -18,13 +18,13 @@ sys.path.insert(0, os.path.dirname(__file__))
 from config import (MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS,
                     TOPIC_RSSI, SENSORS)
 
-CALIBRATION_DURATION_S = int(os.getenv("SENTINEL_CAL_DURATION_S", "60"))
+CALIBRATION_DURATION_S = int(os.getenv("ROOMSENSE_CAL_DURATION_S", "60"))
 CALIBRATION_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "calibration"
 )
 OFFSETS_FILE = os.path.join(CALIBRATION_DIR, "node_offsets.json")
-BEACON_MAC = os.getenv("SENTINEL_BEACON_MAC", "00:00:00:00:00:00").lower()
+BEACON_MAC = os.getenv("ROOMSENSE_BEACON_MAC", "00:00:00:00:00:00").lower()
 
 
 def run_calibration():
