@@ -1,4 +1,4 @@
-# Room Sentinel — Model Report
+# RoomSense — Model Report
 
 Trained: 2026-06-20
 Model: v3_env (environment-level features)
