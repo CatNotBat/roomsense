@@ -18,12 +18,13 @@ from sklearn.metrics import roc_auc_score
 from features import build_table, NOT_HEARD
 from config import WINDOW_S
 
-# ---- Real device MACs (identified from REAL_* windows in session data) ----
+# ---- Device MACs identified from REAL_* windows in the capture session ----
+# Redacted to example values; fill in from your own (gitignored) data/ session.
 REAL_MACS = {
-    "e9:96:68:86:de:51",  # AirPods (primary: clean gradient IN→OUT)
-    "4e:70:2a:e7:e2:9f",  # AirPods (rotated RPA, IN_POCKET only)
-    "d8:9c:3b:92:45:7d",  # Phone FindMy (clean gradient -55→-61→-68)
-    "90:dd:5d:bd:fa:94",  # Phone Nearby Info (flat -72 everywhere — adversarial case)
+    "aa:bb:cc:00:00:01",  # AirPods (primary: clean gradient IN→OUT)
+    "aa:bb:cc:00:00:02",  # AirPods (rotated RPA, IN_POCKET only)
+    "aa:bb:cc:00:00:03",  # Phone FindMy (clean gradient -55→-61→-68)
+    "aa:bb:cc:00:00:04",  # Phone Nearby Info (flat -72 everywhere — adversarial case)
 }
 
 BEACON_MAC = os.getenv("ROOMSENSE_BEACON_MAC", "00:00:00:00:00:00").lower()

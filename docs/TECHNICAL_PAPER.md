@@ -163,7 +163,7 @@ WiFi and MQTT credentials are in `secrets.h` (gitignored):
 ```c
 #define WIFI_SSID  "MyNetwork"
 #define WIFI_PASS  "password"
-#define MQTT_HOST  "192.168.1.200"  // Brain IP
+#define MQTT_HOST  "192.168.1.200"  // Brain IP (change to yours)
 ```
 
 ### 4.3 Flash command
@@ -896,7 +896,7 @@ arduino-cli upload --fqbn esp32:esp32:esp32:PartitionScheme=huge_app \
   -p /dev/ttyUSB0 src/wr32_combo/
 
 # 2. Copy to RPi
-rsync -av --exclude .venv . sentinel@192.168.1.200:/opt/roomsense/
+rsync -av --exclude .venv . <brain-user>@<brain-ip>:/opt/roomsense/
 
 # 3. Run setup (installs Mosquitto, Python, systemd service)
 sudo bash /opt/roomsense/deploy/setup-rpi.sh
